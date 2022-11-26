@@ -18,7 +18,10 @@ export async function urlFetch(url: string, parseHtml: boolean): Promise<Buffer 
       });
 
       msg.on("end", () => {
-        var html = Buffer.concat(htmlChunks);
+        if (process.env.DEBUG) {
+          console.log("Response Headers:", msg.headers);
+        }
+        const html = Buffer.concat(htmlChunks);
         // parse the result
         if (parseHtml) {
           resolve(parseHtmlDoc(html.toString("utf-8")));

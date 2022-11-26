@@ -1,5 +1,37 @@
 import { VoteValue } from "./@types";
 
+export function startsWithAnyIndex(str: string, searchStrs: string[]) {
+  for (var i = 0, size = searchStrs.length; i < size; i++) {
+    if (str.startsWith(searchStrs[i])) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+export function splitFirst(str: string, splitter: string): [string, string] | [string] {
+  const idx = str.indexOf(splitter);
+  if (idx >= 0) {
+    return [str.substring(0, idx), str.substring(idx + splitter.length)];
+  }
+  else {
+    return [str];
+  }
+}
+
+
+export function remove<T>(ary: T[], removes: (T | null)[]): T[] {
+  const res = ary.slice();
+  for (const remove of removes) {
+    const idx = remove != null ? res.indexOf(remove) : -1;
+    if (idx >= 0) {
+      res.splice(idx, 1);
+    }
+  }
+  return res;
+}
+
+
 export function getDashNumber(texts: string[], textIdx: number): number | null {
   if (textIdx < 0) {
     return null;
