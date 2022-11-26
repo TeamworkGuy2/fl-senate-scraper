@@ -52,8 +52,7 @@ export function parseVotes(
   const nays = getDashNumber(texts, naysTitleIdx);
   const notVoting = getDashNumber(texts, notVotingTitleIdx);
   const headers = parseHeaders(texts, yeasTitleIdx);
-  const presidingTitleIdx = texts.findIndex(s => s.startsWith("Presiding"));
-  const votesTableStartIdx = presidingTitleIdx + 3;
+  const votesTableStartIdx = findVoteTableIndex(texts);
   const { votes, errors: parseVotesErrors } = parseVoteTable(texts, votesTableStartIdx);
   const errors = parseVotesErrors.slice();
 
@@ -173,4 +172,11 @@ function parseVoteItem(texts: string[], idx: number): [VoteInfo | null, string[]
   }
 
   return [vote, errors.length > 0 ? errors : null, inc];
+}
+
+
+function findVoteTableIndex(texts: string[]) {
+  const presidingTitleIdx = texts.findIndex(s => s.startsWith("Presiding"));
+  const offset = presidingTitleIdx >= 0 && texts[presidingTitleIdx + 2] === "President" ? 4 : 3;
+  return presidingTitleIdx + offset;
 }

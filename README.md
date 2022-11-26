@@ -23,6 +23,9 @@ Scrap FL senate bill pages for information about the bill and votes on the bill.
   ```
 * To see more detailed bill and vote information, set the `DEBUG` env variable, like `set DEBUG=* & node ./dest/index.js --year=2022 --bill=100 --outFile=output.csv`, this causes a `raw_output.json` file to be written in the current directory
 
+TODO:
+* Handle "Votes after roll call:" present in some PDFs, like [this one](https://www.flsenate.gov/Session/Bill/2022/434/Vote/SenateVote_s00434__018.PDF)
+
 ---
 ## Usage
 
