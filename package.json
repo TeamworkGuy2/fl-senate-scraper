@@ -1,14 +1,14 @@
 {
-  "name": "fl-senate-scaper",
+  "name": "fl-senate-scraper",
   "version": "0.1.0",
   "description": "Scrap info from flsenate.gov",
   "author": "TeamworkGuy2",
-  "homepage": "https://github.com/TeamworkGuy2/fl-senate-scaper",
+  "homepage": "https://github.com/TeamworkGuy2/fl-senate-scraper",
   "license": "MIT",
-  "main": "index.js",
+  "main": "dest/index.js",
   "repository": {
     "type": "git",
-    "url": "https://github.com/TeamworkGuy2/fl-senate-scaper.git"
+    "url": "https://github.com/TeamworkGuy2/fl-senate-scraper.git"
   },
   "dependencies": {
     "@types/jsdom": "^20.0.1",

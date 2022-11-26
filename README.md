@@ -1,4 +1,4 @@
-FL Senate Scaper
+FL Senate Scraper
 ==============
 
 Scrap FL senate bill pages for information about the bill and votes on the bill.
