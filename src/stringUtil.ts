@@ -79,6 +79,20 @@ export function untilDashNumber(texts: string[], textIdx: number): { number: num
 }
 
 
+export function betweenText(text: string | null, startIdx: number, endTarget: string): [match: string, endIndex: number] | null {
+  if (text == null) {
+    return null;
+  }
+  let endIdx = text.indexOf(endTarget, startIdx);
+  if (endIdx >= 0) {
+    return [text.substring(Math.max(startIdx, 0), endIdx), endIdx];
+  }
+  else {
+    return null;
+  }
+}
+
+
 export function isDash(char: string | null) {
   return char?.length === 1 && !isDigit(char) && !isAlpha(char);
 }

@@ -13,6 +13,37 @@ export interface BillInfo {
   billId: string;
   billUrl: string;
   billPdf: string;
+  billHistory: {
+    date: string;
+    chamber: string;
+    action: string;
+    [index: string]: string;
+  }[];
+  billText: {
+    version: string;
+    posted: string;
+    format?: string;
+    linkUrl?: string;
+    linkPdf?: string;
+    [index: string]: string | undefined;
+  }[];
+  citations: ({
+    citation: { link: string; text: string; rawHtml: string };
+    catchline: string;
+    locationInBill: { link: string; text: string; rawHtml: string; fileType: string | null }[];
+  } | {
+    chapterLaw: { link: string; text: string; rawHtml: string };
+    sectionAmended: string;
+    locationInBill: { link: string; text: string; rawHtml: string; fileType: string | null }[];
+  })[];
+  relatedBills: {
+    billNumber: string;
+    subject: string;
+    filedBy: string;
+    relationship: string;
+    lastActionAndLocation: string;
+    [index: string]: string;
+  }[];
   votes: {
     yeas: number | null;
     nays: number | null;

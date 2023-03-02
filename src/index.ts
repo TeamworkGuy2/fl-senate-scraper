@@ -1,33 +1,41 @@
 import * as fs from "fs";
 import { BillAndVotesParsed, VotePdfParsed } from "./@types";
+import { arrayToChunks, runAsyncBatchActionsInSeries } from "./miscUtil";
 import { loadPdf, parseVotes, validateVotesPdf } from "./parseVotePdf";
 import { getBill } from "./scrapeBillPage";
 import { writeOutput } from "./writeOutput";
 
-function run() {
+function main() {
   const year = findArg("year");
   const bills = findArg("bill")?.split(",").filter(s => s.length > 0);
   const outFile = findArg("outFile");
   const inFile = findArg("inFile");
 
-  if (!year || !bills) {
+  if (!inFile && (!year || !bills)) {
     console.log("'--year=####' or '--bill=###,###,###' argument missing, usage: 'node ./dest/index.js --year=2022 --bill=100' --outFile=output.(json|csv)");
     return;
   }
   if (process.env.DEBUG) {
-    console.log("loading bills [" + bills + "], year: " + year + ", saving to file: " + outFile);
+    if (!inFile) {
+      console.log("loading bills [" + bills + "], year: " + year + ", saving to file: " + outFile);
+    }
+    else {
+      console.log("loading bills from file: " + inFile + ", saving to file: " + outFile);
+    }
   }
 
   let resPromise: Promise<PromiseSettledResult<BillAndVotesParsed | { error: any }>[]>;
   if (!inFile) {
-    resPromise = Promise.allSettled(bills.map(bill => {
-      return parseBillVotes(year, bill).then((res) => {
-        console.log("loaded " + res.votes.length + " vote results for bill #" + res.billId);
-        return res;
-      }).catch((err) => {
-        return { error: err };
-      })
-    }));
+    resPromise = runAsyncBatchActionsInSeries(arrayToChunks(bills!, 40), (billSubset, i) =>
+      Promise.allSettled(billSubset.map(bill => {
+        return parseBill(year!, bill).then((res) => {
+          console.log("loaded " + res.votes.length + " vote results for bill #" + res.billId);
+          return res;
+        }).catch((err) => {
+          return { error: err };
+        })
+      }))
+    );
   }
   else {
     const inFileContents = fs.readFileSync(inFile, { encoding: "utf8" });
@@ -46,7 +54,7 @@ function run() {
 }
 
 
-export async function parseBillVotes(
+export async function parseBill(
   year: string,
   billId: string,
 ): Promise<BillAndVotesParsed> {
@@ -93,4 +101,4 @@ function findArg(name: string) {
   return null;
 }
 
-run();
+main();

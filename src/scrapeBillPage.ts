@@ -1,8 +1,15 @@
 import { BillInfo } from "./@types";
+import { parseTables, DEFAULT_PARSER_VALUE, trimmedHtml } from "./htmlUtil";
+import { betweenText } from "./stringUtil";
 import { urlFetch } from "./urlFetch";
 
 export const origin = "https://www.flsenate.gov";
 export const chambers = ["Senate", "House"] as const;
+export interface LinkParsed {
+  link: string | null;
+  text: string | null;
+  rawHtml: string | null;
+}
 
 /** Get a bill from flsenate.gov and extract information about the bill from the webpage.
  * @param year the session year the bill was filled in
@@ -15,19 +22,25 @@ export async function getBill(year: string, billNumber: string): Promise<BillInf
 
   return urlFetch(origin + pathView, true).then((dom) => {
     const votes = parseBillPageForVotes(dom, path);
-    const billInfo = parseBillPageForInfo(dom);
+    const billInfo = parseBillPageInfo(dom);
+    const billHistory: any[] = parseBillHistoryTable(dom);
+    const relatedBills: any[] = parseBillRelatedTable(dom);
+    const billText: any[] = parseBillTextTable(dom);
+    const citations: any[] = parseBillCitationsTable(dom);
     return {
       billId: billNumber,
-      billUrl: `${origin}${path}/BillText/er/HTML`,
-      billPdf: `${origin}${path}/BillText/er/PDF`,
       ...billInfo,
+      billHistory,
+      billText,
+      citations,
+      relatedBills,
       votes,
     };
   });
 }
 
 
-function parseBillPageForInfo(dom: Document) {
+function parseBillPageInfo(dom: Document) {
   const titleHeader = dom.querySelector(".main h2");
   const title = titleHeader?.textContent || null;
   const snapshotDom = dom.querySelector("#snapshot");
@@ -36,17 +49,138 @@ function parseBillPageForInfo(dom: Document) {
   const committeeItems = snapshotDom?.querySelectorAll("ol li");
   const committees = Array.from(committeeItems || []).map(li => li.textContent!.trim());
   const snapshotText = snapshotDom?.textContent || null;
-  const effectiveDate = extractDateAfter(snapshotText, "Effective Date:");
-  const lastActionDate = extractDateAfter(snapshotText, "Last Action:");
+  const [effectiveDate] = extractDateAfter(snapshotText, "Effective Date:");
+  const [lastActionDate, lastActionDateIdx] = extractDateAfter(snapshotText, "Last Action:");
+  const lastActionText = lastActionDateIdx ? betweenText(snapshotText, lastActionDateIdx, "Bill Text:")?.[0] ?? null : null;
+  const billUrl = (<HTMLAnchorElement>snapshotDom?.querySelector("a.lnk_BillTextHTML"))?.href;
+  const billPdf = (<HTMLAnchorElement>snapshotDom?.querySelector("a.lnk_BillTextPDF"))?.href;
   return {
     title,
     summary,
     effectiveDate,
     lastActionDate,
+    lastActionText,
+    billUrl,
+    billPdf,
     committees,
   }
 }
 
+function parseBillHistoryTable(dom: Document) {
+  return parseTables(dom, "#tabBodyBillHistory table", "bill history");
+}
+
+function parseBillCitationsTable(dom: Document) {
+  return parseTables(dom, "#tabBodyCitations table", "bill citation", (td, _, dst) => {
+    if (dst.name === "citation") {
+      dst.value = parseLink(td);
+      return dst;
+    }
+    // shorten column name and remove HTML wrapper element
+    else if (dst.name === "locationInBillLocationInBillHelp") {
+      const links = isFirstChildLink(td)
+        ? [parseFileLink(td)]
+        : Array.from(td.children).map((child) => parseFileLink(child));
+      return {
+        name: "locationInBill",
+        value: links,
+      };
+    }
+    else if (dst.name === "chapterLaw") {
+      const link = parseFileLink(td);
+      dst.value = link;
+      return dst;
+    }
+    else {
+      return DEFAULT_PARSER_VALUE;
+    }
+  });
+}
+
+function isFirstChildLink(elem: Element | null | undefined) {
+  return elem?.children?.length! > 0 && (elem?.children[0] as HTMLElement)?.tagName === "A";
+}
+
+function parseLink(linkParent: Element | null | undefined) {
+  if (linkParent == null) {
+    return DEFAULT_PARSER_VALUE;
+  }
+  const linkElem = linkParent.children?.length > 0 ? linkParent.children[0] as HTMLElement : null;
+  const link = linkElem?.tagName === "A" ? (linkElem as HTMLAnchorElement | null)?.href : null;
+  const text = linkElem?.textContent ?? linkParent?.textContent ?? "";
+  if (link == null) {
+    return DEFAULT_PARSER_VALUE;
+  }
+  return {
+    link,
+    text,
+    rawHtml: trimmedHtml(linkParent),
+  };
+}
+
+function parseFileLink(linkParent: Element) {
+  const link = parseLink(linkParent);
+  if (link === DEFAULT_PARSER_VALUE) {
+    return DEFAULT_PARSER_VALUE;
+  }
+  const fileType = linkParent?.children[1]?.className?.includes("filetype") ? linkParent?.children[1]?.textContent : null;
+  (link as any).fileType = fileType;
+  return link as (LinkParsed & { fileType: string | null });
+}
+
+function parseBillRelatedTable(dom: Document) {
+  return parseTables(dom, "#tabBodyRelatedBills table", "related bills", (td, _, dst) => {
+    // skip this column
+    if (dst.name === "trackBills") {
+      return null;
+    }
+    // we only want the link
+    else if (dst.name === "billNumber") {
+      const billLink = getChild(td, "A")?.href ?? DEFAULT_PARSER_VALUE;
+      return {
+        name: "billLink",
+        value: billLink,
+      };
+    }
+    else {
+      return DEFAULT_PARSER_VALUE;
+    }
+  });
+}
+
+function parseBillTextTable(dom: Document) {
+  return parseTables(dom, "#tabBodyBillText table", "bill text", (td, _, dst) => {
+    if (dst.name === "format") {
+      dst.value = Array.from(td.querySelectorAll("a") || []).map((elem) => {
+        const type = elem.title?.includes("PDF") ? "PDF" : "HTML";
+        return { type, link: elem.href };
+      });
+      return dst;
+    }
+    else if (dst.name === "redistrictingPlan") {
+      dst.value = getChild(td, "A")?.textContent ?? DEFAULT_PARSER_VALUE;
+      return dst;
+    }
+    else {
+      return DEFAULT_PARSER_VALUE;
+    }
+  }).map((obj) => {
+    if (obj.format) {
+      const linkUrl = (<any[]>obj.format).find(x => x.type === "HTML");
+      const linkPdf = (<any[]>obj.format).find(x => x.type === "PDF");
+      if (linkUrl) {
+        obj.linkUrl = linkUrl?.link;
+      }
+      if (linkPdf) {
+        obj.linkPdf = linkPdf?.link;
+      }
+      if (linkUrl || linkPdf) {
+        delete obj["format"];
+      }
+    }
+    return obj;
+  });
+}
 
 function parseBillPageForVotes(dom: Document, billUrlPath: string) {
   function asChamber(chamber: string | null): "Senate" | "House" | null {
@@ -85,18 +219,18 @@ function parseBillPageForVotes(dom: Document, billUrlPath: string) {
  * @param prefix the target text preceeding the date
  * @returns a date or null
  */
-function extractDateAfter(str: string | null | undefined, prefix: string) {
+function extractDateAfter(str: string | null | undefined, prefix: string): [date: Date | null, startIdx: number] {
   const prefixIdx = str?.indexOf(prefix) || -1;
   if (str == null || prefixIdx < 0) {
-    return null;
+    return [null, -1];
   }
   const searchStr = str.substring(prefixIdx + prefix.length);
   const nextMultiSpaceIdx = searchStr.search(/\s{2,}/);
   if (nextMultiSpaceIdx < 0) {
-    return null;
+    return [null, -1];
   }
   const date = new Date(searchStr.substring(0, nextMultiSpaceIdx).trim());
-  return !isNaN(date.valueOf()) ? date : null;
+  return !isNaN(date.valueOf()) ? [date, prefixIdx + prefix.length] : [null, -1];
 }
 
 
@@ -128,4 +262,10 @@ function querySelectorAllBetween(
     elem = elem.nextElementSibling;
   }
   return results;
+}
+
+function getChild<T extends Uppercase<keyof HTMLElementTagNameMap>>(elem: HTMLElement, childTag: T) {
+  return elem.children?.length === 1 && elem.children?.[0].tagName === "A"
+    ? (<HTMLElementTagNameMap[Lowercase<T>]>elem.children[0])
+    : null;
 }
