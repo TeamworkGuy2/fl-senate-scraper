@@ -24,10 +24,14 @@ This project uses [Node.js](https://nodejs.org/) to download the bill pages and 
   ```
 * To see more detailed bill and vote information, set the `DEBUG` env variable, like `set DEBUG=* & node ./dest/index.js --year=2022 --bill=100 --outFile=output.csv`, this causes a `raw_output.json` file to be written in the current directory
 
+Resources:
+
 To find your Florida congress person:
 * https://www.myfloridahouse.gov/Sections/Representatives/myrepresentative.aspx
+
 To find your Florida senator:
 * https://www.flsenate.gov/Senators
+
 A full list of laws can be retrieved from http://laws.flrules.org/node > pick \[year\] > click Apply.
 
 TODO:
@@ -37,6 +41,7 @@ TODO:
 ## Usage
 
 To run this on your computer, you'll need a Javascript runtime. Preferably [Node.js](https://nodejs.org/) because this project is written in `TypeScript/Javascript`.
+
 [Download Node.js](https://nodejs.org/en/download/) and install it. You can skip adding the `corepack` package manager, skip adding node to your computer path, and skip installing necessary tools. We won't need any of that to run this project.
 
 ![](doc/images/node-install-1.png)
