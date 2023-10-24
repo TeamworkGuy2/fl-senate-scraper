@@ -11,8 +11,8 @@ export interface BillInfo {
   lastActionDate: Date | null;
   committees: string[];
   billId: string;
-  billUrl: string;
-  billPdf: string;
+  billUrl?: string;
+  billPdf?: string;
   billHistory: {
     date: string;
     chamber: string;
@@ -37,7 +37,7 @@ export interface BillInfo {
     locationInBill: { link: string; text: string; rawHtml: string; fileType: string | null }[];
   })[];
   relatedBills: {
-    billNumber: string;
+    billLink: string;
     subject: string;
     filedBy: string;
     relationship: string;

@@ -1,14 +1,14 @@
 FL Senate Scraper
 ==============
 
-Scrap FL senate bill pages for information about the bill and votes on the bill.
-* URLs are assumed to be in the format: `https://www.flsenate.gov/Session/Bill/{year}/{billId}`
+Parse FL senate pages for information about bills and who voted for the bills.
+This project uses [Node.js](https://nodejs.org/) to download the bill pages and PDFs containing the vote tallies. It parses that information and generates CSV or JSON files containing the results.
+* URLs for bills assume the form (can be changed in [src/scrapeBillPage.ts](src/scrapeBillPage.ts)): `https://www.flsenate.gov/Session/Bill/{year}/{billId}`
 * The session year and bill are passed as command line arguments like: `node ./dest/index.js --year=2022 --bill=100,102,105 --outFile=output.(json|csv)`
 * The output file path/name is relative to the current directory
-* All vote PDFs are loaded and parsed
-* Only the latest vote from 'House' and latest vote from 'Senate' are output; there may be multiple parsed votes per chamber
+* All vote PDFs are loaded and parsed. Only the latest vote from 'House' and latest vote from 'Senate' are output; there may be multiple parsed votes per chamber
 * Results can be saved to CSV or JSON file format (or written to stdout/console as JSON if no `outFile` is specified)
-* The JSON file output schema in [@types.d.ts](src/%40types.d.ts) is:
+* The JSON file output schema is defined in [@types.d.ts](src/%40types.d.ts):
   ```TS
     BillAndVotesParsed[]
   ```
@@ -39,16 +39,16 @@ Now, in your web browser go to the [Tags](https://github.com/TeamworkGuy2/fl-sen
 
 ![](doc/images/gh-tags.png)
 
-Unzip the downloaded file. And open up the folder.
+Unzip the downloaded file and open up the folder.
 
 ![](doc/images/unzipped-proj-folder.png)
 
-Find and open the `Node.js command prompt` that you installed earlier. In Windows, open the start menu and search for `node`, it should look like this:
+Find and open the `Node.js command prompt` that you installed earlier. If you're using Windows, this can be found by opening the start menu and searching for `node`, it should look like this:
 ![](doc/images/windows-find-node-cmd-prompt.png)
 
 ![](doc/images/node-cmd-prompt.png)
 
-In the `Node.js command prompt` window, `cd` into the project directory and press enter (`cd` is a command you run to 'open' a specific directory to run commands in that directory):
+In the `Node.js command prompt`, `cd` into the project directory and press enter (`cd` is a command you run to navigate to a specific directory to run commands in that directory):
 
 ![](doc/images/navigate-node-cmd-prompt-to-proj-folder.png)
 
@@ -65,7 +65,9 @@ And run the project for the specific senate bills you wish to retrieve by runnin
 node ./dest/index.js --year=2022 --bill=100 --outFile=output.csv
 ```
 
-Where the `year`, `bill` and `outFile` values can be customized, see details at the top of this readme file.
+Where the `year`, `bill` and `outFile` values can be customized, see details at the top of this README file.
+
+Get the list of laws from http://laws.flrules.org/node > pick \[year\] > click Apply.
 
 ![](doc/images/ran-successfully.png)
 
