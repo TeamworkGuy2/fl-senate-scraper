@@ -1,7 +1,8 @@
 FL Senate Scraper
 ==============
 
-Parse FL senate pages for information about bills and who voted for the bills.
+Parse FL senate pages for information about bills and which congress persons voted for the bills.
+
 This project uses [Node.js](https://nodejs.org/) to download the bill pages and PDFs containing the vote tallies. It parses that information and generates CSV or JSON files containing the results.
 * URLs for bills assume the form (can be changed in [src/scrapeBillPage.ts](src/scrapeBillPage.ts)): `https://www.flsenate.gov/Session/Bill/{year}/{billId}`
 * The session year and bill are passed as command line arguments like: `node ./dest/index.js --year=2022 --bill=100,102,105 --outFile=output.(json|csv)`
@@ -22,6 +23,12 @@ This project uses [Node.js](https://nodejs.org/) to download the bill pages and 
   200,N,,Y
   ```
 * To see more detailed bill and vote information, set the `DEBUG` env variable, like `set DEBUG=* & node ./dest/index.js --year=2022 --bill=100 --outFile=output.csv`, this causes a `raw_output.json` file to be written in the current directory
+
+To find your Florida congress person:
+* https://www.myfloridahouse.gov/Sections/Representatives/myrepresentative.aspx
+To find your Florida senator:
+* https://www.flsenate.gov/Senators
+A full list of laws can be retrieved from http://laws.flrules.org/node > pick \[year\] > click Apply.
 
 TODO:
 * Handle "Votes after roll call:" present in some PDFs, like [this one](https://www.flsenate.gov/Session/Bill/2022/434/Vote/SenateVote_s00434__018.PDF)
@@ -44,6 +51,7 @@ Unzip the downloaded file and open up the folder.
 ![](doc/images/unzipped-proj-folder.png)
 
 Find and open the `Node.js command prompt` that you installed earlier. If you're using Windows, this can be found by opening the start menu and searching for `node`, it should look like this:
+
 ![](doc/images/windows-find-node-cmd-prompt.png)
 
 ![](doc/images/node-cmd-prompt.png)
@@ -66,8 +74,6 @@ node ./dest/index.js --year=2022 --bill=100 --outFile=output.csv
 ```
 
 Where the `year`, `bill` and `outFile` values can be customized, see details at the top of this README file.
-
-Get the list of laws from http://laws.flrules.org/node > pick \[year\] > click Apply.
 
 ![](doc/images/ran-successfully.png)
 
