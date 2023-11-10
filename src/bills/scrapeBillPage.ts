@@ -1,7 +1,7 @@
-import { BillInfo } from "./@types";
-import { parseTables, DEFAULT_PARSER_VALUE, trimmedHtml } from "./htmlUtil";
-import { betweenText } from "./stringUtil";
-import { urlFetch } from "./urlFetch";
+import { BillInfo } from "../@types";
+import { parseTables, DEFAULT_PARSER_VALUE, trimmedHtml } from "../utils/htmlUtil";
+import { betweenText } from "../utils/stringUtil";
+import { urlFetch } from "../utils/urlFetch";
 
 export const origin = "https://www.flsenate.gov";
 export const chambers = ["Senate", "House"] as const;
@@ -16,7 +16,7 @@ export interface LinkParsed {
  * @param billNumber the bill number
  * @returns information and links from the webpage for that bill
  */
-export async function getBill(year: string, billNumber: string): Promise<BillInfo> {
+export async function fetchBill(year: string, billNumber: string): Promise<BillInfo> {
   const path = `/Session/Bill/${year}/${billNumber}`;
   const pathView = `${path}/ByCategory`
 

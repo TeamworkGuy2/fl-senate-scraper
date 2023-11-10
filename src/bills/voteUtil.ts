@@ -1,4 +1,4 @@
-import { VotePdfParsed } from "./@types";
+import { VotePdfParsed } from "../@types";
 
 export function findLatestVote(votes: VotePdfParsed[], chamber: string) {
   let latestDate = new Date(0);

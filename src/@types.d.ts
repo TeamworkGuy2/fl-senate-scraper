@@ -75,3 +75,23 @@ export enum VoteValue {
   ABSTAIN = "AV",
   NOT_VOTING = "-NV-",
 }
+
+export interface Representative {
+  name: string;
+  link: string; // url
+  imageLink: string; // url
+  district: string; // number
+  party: string; // Democrat | Republican | ?
+  areaDescription: string;
+  term: string; // startDate - endDate
+}
+
+export interface Senator {
+  name: string;
+  title?: string;
+  link: string; // url
+  imageLink: string; // url
+  district: string; // number
+  party: string; // Democrat | Republican | ?
+  counties: string;
+}

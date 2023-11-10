@@ -1,36 +1,66 @@
-FL Senate Scraper
-==============
+# FL Senate Scraper
 
-Parse FL senate pages for information about bills and which congress persons voted for the bills.
+Parse FL senate and house web pages for information. This toolkit includes:
+* Parse information on bills and votes from FL congressional sessions
+* Parse list of FL senators (names, party, district, counties)
+* Parse list of FL house representatives (names, party, district, counties)
 
-This project uses [Node.js](https://nodejs.org/) to download the bill pages and PDFs containing the vote tallies. It parses that information and generates CSV or JSON files containing the results.
-* URLs for bills assume the form (can be changed in [src/scrapeBillPage.ts](src/scrapeBillPage.ts)): `https://www.flsenate.gov/Session/Bill/{year}/{billId}`
-* The session year and bill are passed as command line arguments like: `node ./dest/index.js --year=2022 --bill=100,102,105 --outFile=output.(json|csv)`
+This project uses [Node.js](https://nodejs.org/) to download the bill web pages and PDFs containing the vote tallies. It parses that information and generates CSV or JSON files containing the results.
+Instructions for how to run this tool yourself are in the [Usage](#usage) section.
+
+## Retrieving bills & votes:
+* URLs for bills are assumed to be: `https://www.flsenate.gov/Session/Bill/{year}/{billId}` (can be changed in [src/bills/scrapeBillPage.ts](src/scrapeBillPage.ts))
+* The session year and bill are passed as command line arguments like: `node ./dest/index.js --year=2022 --bill=100,102,105 --outFile=output.(json|csv) --rows=[bill|voter]`
 * The output file path/name is relative to the current directory
-* All vote PDFs are loaded and parsed. Only the latest vote from 'House' and latest vote from 'Senate' are output; there may be multiple parsed votes per chamber
+* All vote PDFs are loaded and parsed. Only the latest vote from 'House' and latest vote from 'Senate' are output; there may be multiple votes per chamber
 * Results can be saved to CSV or JSON file format (or written to stdout/console as JSON if no `outFile` is specified)
-* The JSON file output schema is defined in [@types.d.ts](src/%40types.d.ts):
-  ```TS
-    BillAndVotesParsed[]
-  ```
-* The CSV file output format is:
-  ```CSV
-  House
-  bill_id,# - name,# - name,# - name
-  100,Y,,N
-  Senate
-  bill_id,# - name,# - name,# - name
-  200,N,,Y
-  ```
+  * The JSON file format is defined in [@types.d.ts](src/%40types.d.ts) as: `BillAndVotesParsed[]`
+  * The CSV `bill` file format (the bill number is the first column in each row):
+    ```CSV
+    House
+    Bill,1 - Ana,2 - Bob,3 - Sid
+    100,Y,Y,N
+    102,Y,,N
+    103,Y,Y,EX
+
+    Senate
+    Bill,11 - Lori,52 - Carl,103 - Ali
+    201,Y, ,N
+    205,N,N,Y
+    ```
+
+  * The CSV `voter` file format (the district and congress person's name is the first column in each row):
+    ```CSV
+    House
+    Bill,100,102,103
+    1 - Ana,Y,Y,Y
+    2 - Bob,Y,,Y
+    3 - Sid,N,N,EX
+
+    Senate
+    Bill,201,205
+    11 - Lori,Y,N
+    52 - Carl, ,N
+    103 - Ali,N,Y
+    ```
 * To see more detailed bill and vote information, set the `DEBUG` env variable, like `set DEBUG=* & node ./dest/index.js --year=2022 --bill=100 --outFile=output.csv`, this causes a `raw_output.json` file to be written in the current directory
 
-Resources:
+## Retrieving a list of senators or representatives:
+* The senator list is assumed to be found at: https://www.flsenate.gov/Senators
+* The representatives list is assumed to be found at: https://www.myfloridahouse.gov/representatives
+* The command line arguments for downloading these lists looks like: `node ./dest/index.js --fetch=[senate|congress] --outFile=output.json`
+* Results can be saved to CSV or JSON file format (or written to stdout/console as JSON if no `outFile` is specified)
+  * The JSON file format is defined in [@types.d.ts](src/%40types.d.ts) as: `Senator[]` for `senate` and `Representative[]` for `congress`
+  * CSV output is __not__ currently supported
 
-To find your Florida congress person:
-* https://www.myfloridahouse.gov/Sections/Representatives/myrepresentative.aspx
+
+## Resources:
 
 To find your Florida senator:
 * https://www.flsenate.gov/Senators
+
+To find your Florida representative:
+* https://www.myfloridahouse.gov/Sections/Representatives/myrepresentative.aspx
 
 A full list of laws can be retrieved from http://laws.flrules.org/node > pick \[year\] > click Apply.
 

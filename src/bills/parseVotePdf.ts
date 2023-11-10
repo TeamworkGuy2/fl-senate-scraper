@@ -1,8 +1,8 @@
-/// <reference path="./types/pdf2json.d.ts" />
-import { BillInfo, VoteInfo, VotePdfParsed, VoteValue } from "./@types";
+/// <reference path="../types/pdf2json.d.ts" />
+import { BillInfo, VoteInfo, VotePdfParsed, VoteValue } from "../@types";
 import PDFParser = require("pdf2json");
-import { urlFetch } from "./urlFetch";
-import { getDashNumber, isVoteValue, splitFirst, startsWithAnyIndex, untilDashNumber } from "./stringUtil";
+import { urlFetch } from "../utils/urlFetch";
+import { getDashNumber, isVoteValue, startsWithAnyIndex, untilDashNumber } from "../utils/stringUtil";
 
 
 export async function loadPdf(pdfUrl: string) {
@@ -155,11 +155,11 @@ function parseVoteItem(texts: string[], idx: number): [VoteInfo | null, string[]
 
   // '[Y/N]  Name[-Name]-##'
   if (nameAndAreaId != null) {
-    const name = texts.slice(idx + offset, idx + offset + nameAndAreaId.increment - 2).join("");
+    const name = texts.slice(idx + offset, idx + offset + nameAndAreaId.increment - 2).join(" ");
     vote = {
       areaId: nameAndAreaId.number,
       voterName: name,
-      vote: voteValue || "-NA-" as VoteValue,
+      vote: (voteValue || "-NA-") as VoteValue,
     };
     inc = nameAndAreaId.increment + offset;
   }

@@ -1,4 +1,4 @@
-import { VoteValue } from "./@types";
+import { VoteValue } from "../@types";
 
 export function startsWithAnyIndex(str: string, searchStrs: string[]) {
   for (var i = 0, size = searchStrs.length; i < size; i++) {
