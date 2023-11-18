@@ -15,22 +15,23 @@ export function fetchSenators(pageUrl = 'https://www.flsenate.gov/Senators') {
     if (colHeaders.length < 4) {
       throw new Error("'#Senators' table expected to contain 4 or more columns, found " + colHeaders.length);
     }
-    expectColumn(colHeaders[0], 'senator');
-    expectColumn(colHeaders[1], 'district');
-    expectColumn(colHeaders[2], 'party');
-    expectColumn(colHeaders[3], 'counties');
-    const rows = Array.from(table.querySelectorAll<HTMLTableRowElement>("tbody tr:not(#NoMatch)")).map((tr, i) => parseSenatorRow(domain, tr, i + 1));
+    expectColumn(colHeaders, 0, 'senator');
+    expectColumn(colHeaders, 1, 'district');
+    expectColumn(colHeaders, 2, 'party');
+    expectColumn(colHeaders, 3, 'counties');
+    const rows = Array.from(table.querySelectorAll<HTMLTableRowElement>("tbody tr:not(#NoMatch)"))
+      .map((tr, i) => parseSenatorRow(domain, tr, i + 1));
     return rows;
   });
 }
 
-function expectColumn(value: string | null | undefined, expected: string) {
-  if (value !== expected) {
-    throw new Error(`'#Senators' table column 1 expected to be '${expected}', found '${value}'`);
+function expectColumn(values: (string | undefined)[], idx: number, expected: string) {
+  if (values[idx] !== expected) {
+    throw new Error(`'#Senators' table column ${idx + 1} expected to be '${expected}', found '${values[idx]}'`);
   }
 }
 
-function parseSenatorRow(domain: string, tr: HTMLTableRowElement, index?: number): Senator {
+function parseSenatorRow(domain: string, tr: HTMLTableRowElement, index: number): Senator {
   const td1 = tr.children[0];
   const td2 = tr.children[1];
   const td3 = tr.children[2];
@@ -42,10 +43,10 @@ function parseSenatorRow(domain: string, tr: HTMLTableRowElement, index?: number
   const district = td2.textContent?.trim();
 
   if (name?.length! < 1) {
-    throw new Error("no name found at row " + index + ", empty or null");
+    throw new Error(`no name found at row ${index + 1}, empty or null`);
   }
   if (district?.length! < 1) {
-    throw new Error("no district ID found at row " + index + ", empty or null");
+    throw new Error(`no district ID found at row ${index + 1}, empty or null`);
   }
 
   return {

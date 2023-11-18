@@ -11,12 +11,14 @@ export interface LinkParsed {
   rawHtml: string | null;
 }
 
-/** Get a bill from flsenate.gov and extract information about the bill from the webpage.
+/** Extract information about a bill from its 'flsenate.gov' web page.
  * @param year the session year the bill was filled in
- * @param billNumber the bill number
- * @returns information and links from the webpage for that bill
+ * @param billId the bill identifier. Can be the numeric identifier like '102'
+ * or '5-B' (for non-regular session bills). Or can be a full identifier like 'H 32'.
+ * @returns information and links from the webpage for the bill
  */
-export async function fetchBill(year: string, billNumber: string): Promise<BillInfo> {
+export async function fetchBill(year: string, billId: string): Promise<BillInfo> {
+  const billNumber = getBillNumberFromId(billId);
   const path = `/Session/Bill/${year}/${billNumber}`;
   const pathView = `${path}/ByCategory`
 
@@ -37,6 +39,17 @@ export async function fetchBill(year: string, billNumber: string): Promise<BillI
       votes,
     };
   });
+}
+
+/**
+ * Get the bill number (i.e. '104' or '3-B') from a bill identifier (i.e. 'H 32').
+ * @param value the bill identifier. Can be the numeric identifier like '102'
+ * or '5-B' (for non-regular session bills). Or can be a full identifier like 'H 32'.
+ * @returns 
+ */
+export function getBillNumberFromId(value: string) {
+  const spaceIdx = value.indexOf(' ');
+  return spaceIdx >= 0 ? value.substring(spaceIdx + 1) : value;
 }
 
 

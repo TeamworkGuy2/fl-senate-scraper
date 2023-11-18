@@ -1,41 +1,49 @@
 import * as fs from "fs";
-import { BillAndVotesParsed, VotePdfParsed } from "./@types";
+import { BillAndVotesParsed, Law } from "./@types";
 import { arrayToChunks, runAsyncBatchActionsInSeries } from "./utils/miscUtil";
-import { loadPdf, parseVotes, validateVotesPdf } from "./bills/parseVotePdf";
-import { fetchBill } from "./bills/scrapeBillPage";
-import { writeBillsOutput, writePersonsOutput } from "./writeOutput";
+import { fetchLawSessions } from "./bills/fetchLawList";
+import { parseBill } from "./bills/parseBill";
 import { fetchRepresentatives } from "./congress/scrapeRepresentativesList";
 import { fetchSenators } from "./senate/scrapeSenatorsList";
+import { writeBillsOutput, writeLawsOutput, writePersonsOutput } from "./writeOutput";
+import { getBillNumberFromId } from "./bills/scrapeBillPage";
 
 function main() {
   const year = findArg("year");
-  const bills = findArg("bill")?.split(",").filter(s => s.length > 0);
+  let bills = findArg("bill")?.split(",").filter(s => s.length > 0);
   const outFile = findArg("outFile");
   const inFile = findArg("inFile");
   const byBillOrVoter = findArg("rows");
   const fetch = findArg("fetch");
 
-  if (!inFile && (!year || !bills) && !fetch) {
-    console.log("Usage: 'node ./dest/index.js --year=2022 --bill=100,101,... --outFile=output.(json|csv) --rows=[bill|voter]");
-    console.log("or: 'node ./dest/index.js --fetch=[senate|congress] --outFile=output.json");
+  if (!inFile && !year && !fetch) {
+    console.log("Usage: 'node ./dest/index.js --year=2022 [--bill=100,101,...] --outFile=output.(json|csv) --rows=[bill|voter]");
+    console.log("or: 'node ./dest/index.js --inFile=previous_output.json --outFile=output.(json|csv) --rows=[bill|voter]");
+    console.log("or: 'node ./dest/index.js --fetch=[senate|congress] --outFile=legislators.json");
+    console.log("or: 'node ./dest/index.js --fetch=laws --year=2022 --outFile=laws.json");
     return;
   }
 
-  // fetch senator/representative list
   if (fetch) {
     if (process.env.DEBUG) {
       console.log("loading " + fetch + " member list");
     }
+    // fetch senators (names, districts, etc) from senate website
     if (fetch === "senate") {
       fetchSenators().then((senators) => {
-        console.log("found " + senators.length + " senators:", "wrote to " + (outFile || "standard output"));
-        writePersonsOutput(outFile, senators);
+        writePersonsOutput(outFile, "senators", senators);
       });
     }
+    // fetch representatives (names, districts, etc) from house website
     else if (fetch === "congress") {
       fetchRepresentatives().then((representatives) => {
-        console.log("found " + representatives.length + " representatives:", "wrote to " + (outFile || "standard output"));
-        writePersonsOutput(outFile, representatives);
+        writePersonsOutput(outFile, "representatives", representatives);
+      });
+    }
+    // fetch laws for a given year from 'laws.flrules.org'
+    else if (fetch === "laws") {
+      fetchLawSessions(year!).then((laws) => {
+        writeLawsOutput(outFile, laws);
       });
     }
     else {
@@ -47,19 +55,30 @@ function main() {
     let resPromise: Promise<PromiseSettledResult<BillAndVotesParsed | { error: any }>[]>;
     // from senate website directly
     if (!inFile) {
-      if (process.env.DEBUG) {
-        console.log("loading bills [" + bills + "], year: " + year + ", saving to file: " + outFile);
+      // get all bill IDs for the year if none are provided
+      let pBills = Promise.resolve(bills);
+      if (!bills) {
+        console.log(`looking up all bill IDs for ${year}...`);
+        pBills = fetchLawSessions(year!).then((sessions) => {
+          return sessions.reduce((laws, s) => laws.concat(s.laws.map((law) => getBillNumberFromId(law.billId))), [] as string[]);
+        });
       }
-      resPromise = runAsyncBatchActionsInSeries(arrayToChunks(bills!, 40), (billSubset, i) =>
-        Promise.allSettled(billSubset.map(bill => {
-          return parseBill(year!, bill).then((res) => {
-            console.log("loaded " + res.votes.length + " vote results for bill #" + res.billId);
-            return res;
-          }).catch((err) => {
-            return { error: err };
-          })
-        }))
-      );
+
+      resPromise = pBills.then((bills) => {
+        if (process.env.DEBUG) {
+          console.log(`loading bills [${bills}], year: ${year}, saving to file: ${outFile}`);
+        }
+        return runAsyncBatchActionsInSeries(arrayToChunks(bills!, 40), (billSubset, i) =>
+          Promise.allSettled(billSubset.map(bill => {
+            return parseBill(year!, bill).then((res) => {
+              console.log("loaded " + res.votes.length + " vote results for bill #" + res.billId);
+              return res;
+            }).catch((err) => {
+              return { error: err };
+            });
+          }))
+        );
+      });
     }
     // or from previously saved file
     else {
@@ -67,7 +86,10 @@ function main() {
         console.log("loading bills from file: " + inFile + ", saving to file: " + outFile);
       }
       const inFileContents = fs.readFileSync(inFile, { encoding: "utf8" });
-      resPromise = Promise.resolve(JSON.parse(inFileContents));
+      resPromise = Promise.resolve(JSON.parse(inFileContents).map(bv => ({
+        status: "fulfilled",
+        value: bv as BillAndVotesParsed,
+      })));
     }
     // write output
     resPromise.then((resultsAndErrors) => {
@@ -82,43 +104,6 @@ function main() {
 }
 
 
-export async function parseBill(
-  year: string,
-  billId: string,
-): Promise<BillAndVotesParsed> {
-  // parse the bill page for PDF links to house/senate votes
-  const bill = await fetchBill(year, billId);
-  const { votes: voteLinks } = bill;
-  console.log("found " + voteLinks.length + " vote PDFs:", voteLinks);
-
-  // parse the votes PDFs
-  const pdfPromises = voteLinks.map(vote => {
-    return loadPdf(vote.link).then((pdfRes) => {
-      const errors = validateVotesPdf(pdfRes);
-      if (errors.length > 0) {
-        throw new Error("Found errors in votes PDF '" + vote.link  + "': " + errors.join(", "));
-      }
-      else {
-        return parseVotes(pdfRes, vote, bill.billId);
-      }
-    });
-  });
-
-  // await the results
-  const { voteSets, errors } = (await Promise.allSettled(pdfPromises)).reduce((sets, res) => {
-    if (res.status === "rejected") {
-      sets.errors.push(res.reason);
-    }
-    else {
-      sets.voteSets.push(res.value);
-    }
-    return sets;
-  }, { voteSets: <VotePdfParsed[]>[], errors: <any[]>[] });
-
-  return { ...bill, errors, votes: voteSets };
-}
-
-
 function findArg(name: string) {
   const nameSuffix = "--" + name + "=";
   const arg = (<string[]>(process.argv || [])).find((s) => s.startsWith(nameSuffix));
@@ -128,5 +113,6 @@ function findArg(name: string) {
   }
   return null;
 }
+
 
 main();

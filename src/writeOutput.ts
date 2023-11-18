@@ -1,5 +1,5 @@
 import * as fs from "fs";
-import { BillAndVotesParsed } from "./@types";
+import { BillAndVotesParsed, Law } from "./@types";
 import * as Csv from "./utils/csvUtil";
 import { chambers } from "./bills/scrapeBillPage";
 import { findLatestVote } from "./bills/voteUtil";
@@ -46,8 +46,33 @@ export function writeBillsOutput(
   }
 }
 
-export function writePersonsOutput(outFile: string | null, persons: { name: string; district: string | number; }[]) {
+export function writePersonsOutput(
+  outFile: string | null,
+  type: string,
+  persons: { name: string; district: string | number; }[]
+) {
+  console.log(`found ${persons.length} ${type}: writing to ${outFile || "standard output"}`);
+
   const results = persons.slice().sort((a, b) => sortVoterIds(a.district + " " + a.name, b.district + " " + b.name));
+  if (outFile) {
+    const resultJson = JSON.stringify(results, undefined, "  ");
+    fs.writeFileSync(outFile, resultJson, { encoding: "utf8" });
+  }
+  else {
+    const resultJson = JSON.stringify(results, undefined, "  ");
+    console.log(resultJson);
+  }
+}
+
+export function writeLawsOutput(outFile: string | null, lawsBySession: { session: string; laws: Law[]; }[]) {
+  console.log(`writing ${lawsBySession.length} sessions containing ${
+    lawsBySession.reduce((sum, s) => (sum + s.laws.length), 0)
+  } laws total to ${outFile || "standard output"}`);
+
+  const results = lawsBySession.slice().sort((a, b) => a.session.localeCompare(b.session)).map(s => ({
+    ...s,
+    laws: s.laws.slice().sort((a, b) => sortBillIds(a.billId, b.billId)),
+  }));
   if (outFile) {
     const resultJson = JSON.stringify(results, undefined, "  ");
     fs.writeFileSync(outFile, resultJson, { encoding: "utf8" });
@@ -142,17 +167,14 @@ function sortVoterIds(a: string, b: string) {
 
 
 function sortBillIds(a: string, b: string) {
-  const aDash = a.includes('-');
-  const bDash = b.includes('-');
-  if (aDash || bDash) {
-    if (aDash && !bDash) {
-      return 1;
-    }
-    if (bDash && !aDash) {
-      return -1;
-    }
+  const aLen = a.length;
+  const bLen = b.length;
+  if (aLen > bLen) {
+    return 1;
+  }
+  if (aLen < bLen) {
+    return -1;
   }
   
-  const diff = parseInt(a) - parseInt(b);
-  return diff !== 0 ? diff : a.localeCompare(b);
+  return a.localeCompare(b);
 }

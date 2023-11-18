@@ -95,3 +95,14 @@ export interface Senator {
   party: string; // Democrat | Republican | ?
   counties: string;
 }
+
+export interface LawDocument {
+  documentLink: string; // url
+  description: string;
+}
+
+export interface Law {
+  billId: string;
+  documentLink: string; // url
+  description: string;
+}
