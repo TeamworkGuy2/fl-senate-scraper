@@ -64,6 +64,7 @@ export function parseVotes(
     billId,
     link: expectedVote.link,
     chamber: expectedVote.chamber,
+    date: expectedVote.date,
     headers: [
       { name: "Yeas", value: yeas },
       { name: "Nays", value: nays },
@@ -71,7 +72,7 @@ export function parseVotes(
       ...headers,
     ],
     votes,
-    errors,
+    errors: errors.length > 0 ? errors : undefined,
   };
 }
 
@@ -155,7 +156,24 @@ function parseVoteItem(texts: string[], idx: number): [VoteInfo | null, string[]
 
   // '[Y/N]  Name[-Name]-##'
   if (nameAndAreaId != null) {
-    const name = texts.slice(idx + offset, idx + offset + nameAndAreaId.increment - 2).join(" ");
+    const nameParts = texts.slice(idx + offset, idx + offset + nameAndAreaId.increment - 2);
+    // fix an issue where spaces were being inserted around the dashes in hyphenated last names
+    // exclude spaces around dashes in names, i.e. ['Joe', 'Rayner', '-', 'Smith'] => 'Joe Ryner-Smith'
+    let name = nameParts[0];
+    if (nameParts.length > 0) {
+      let prevPart: string | undefined = undefined;
+      for (let i = 1, size = nameParts.length; i < size; i++) {
+        const part = nameParts[i];
+        if (part === "-" || prevPart === "-") {
+          name += part;
+        }
+        else {
+          name += ' ' + part;
+        }
+        prevPart = part;
+      }
+    }
+
     vote = {
       areaId: nameAndAreaId.number,
       voterName: name,

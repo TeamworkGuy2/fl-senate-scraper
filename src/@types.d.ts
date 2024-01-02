@@ -57,9 +57,10 @@ export interface VotePdfParsed {
   billId: string;
   link: string;
   chamber: "Senate" | "House" | null;
+  date: string | null;
   headers: { name: string; value: string | number | boolean | null }[];
   votes: VoteInfo[];
-  errors: string[];
+  errors?: string[];
 }
 
 export interface VoteInfo {
@@ -103,6 +104,7 @@ export interface LawDocument {
 
 export interface Law {
   billId: string;
+  documentName: string;
   documentLink: string; // url
   description: string;
 }

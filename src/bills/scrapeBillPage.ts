@@ -19,7 +19,8 @@ export interface LinkParsed {
  */
 export async function fetchBill(year: string, billId: string): Promise<BillInfo> {
   const billNumber = getBillNumberFromId(billId);
-  const path = `/Session/Bill/${year}/${billNumber}`;
+  const sessionId = getSessionIdFromBillId(billId);
+  const path = `/Session/Bill/${year}${sessionId}/${billNumber}`;
   const pathView = `${path}/ByCategory`
 
   return urlFetch(origin + pathView, true).then((dom) => {
@@ -45,11 +46,23 @@ export async function fetchBill(year: string, billId: string): Promise<BillInfo>
  * Get the bill number (i.e. '104' or '3-B') from a bill identifier (i.e. 'H 32').
  * @param value the bill identifier. Can be the numeric identifier like '102'
  * or '5-B' (for non-regular session bills). Or can be a full identifier like 'H 32'.
- * @returns 
+ * @returns the bill ID, normally a numeric string, ex: '104', '32', or '3-B'
  */
 export function getBillNumberFromId(value: string) {
   const spaceIdx = value.indexOf(' ');
   return spaceIdx >= 0 ? value.substring(spaceIdx + 1) : value;
+}
+
+
+/**
+ * Get the session from a bill ID (i.e. '104' is from the regular session, '3-B' is from session 'B' of a given year).
+ * @param value the bill identifier. Can be the numeric identifier like '102'
+ * or '5-B' (for non-regular session bills). Or can be a full identifier like 'H 32'.
+ * @returns the session ID (like 'B') or an empty string
+ */
+ export function getSessionIdFromBillId(value: string) {
+  const dashIdx = value.indexOf('-');
+  return dashIdx > 0 ? value.substring(dashIdx + 1) : "";
 }
 
 

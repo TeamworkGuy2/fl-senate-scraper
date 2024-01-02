@@ -3,6 +3,9 @@ import { BillAndVotesParsed, Law } from "./@types";
 import * as Csv from "./utils/csvUtil";
 import { chambers } from "./bills/scrapeBillPage";
 import { findLatestVote } from "./bills/voteUtil";
+import * as XlsxReaderWriter from "xlsx-spec-utils/XlsxReaderWriter";
+import * as jszip from "jszip";
+
 
 /**
  * Write a JSON or CSV file containing the parsed bills and votes and/or errors
@@ -27,15 +30,45 @@ export function writeBillsOutput(
   }
 
   if (outFile) {
+    for (const res of results) {
+      let i = 0;
+      for (const vote of res.votes) {
+        const dateHeader = vote.headers.find(h => h.name === "Date");
+        const timeHeader = vote.headers.find(h => h.name === "Time");
+        if (dateHeader) {
+          const { billId, link, chamber, date: oldDate, errors, ...rest } = res.votes[i];
+          res.votes[i] = {
+            billId,
+            link,
+            chamber,
+            date: oldDate || `${dateHeader}${timeHeader ? ' ' + timeHeader : ''}`,
+            errors: errors?.length! > 0 ? errors : undefined,
+            ...rest,
+          };
+        }
+        i++;
+      }
+    }
+    debugger;
+
     if (outFile.endsWith("json")) {
       const resultJson = JSON.stringify(results, undefined, "  ");
       fs.writeFileSync(outFile, resultJson, { encoding: "utf8" });
     }
     else if (outFile.endsWith("csv")) {
       const rowFormat = byBillOrVoter === "voter" ? "voter" : "bill";
-      const resultCsv = csvStringify(results, rowFormat);
-      fs.writeFileSync(outFile, resultCsv, { encoding: "utf8" });
+      for (const chamber of chambers) {
+        const resultCsv = csvStringify(results, chamber, rowFormat);
+        fs.writeFileSync(addFileNameSuffix(outFile, `-${chamber}`), resultCsv, { encoding: "utf8" });
+      }
     }
+    /* TODO: work-in-progress
+    else if (outFile.endsWith("xlsx")) {
+      const rowFormat = byBillOrVoter === "voter" ? "voter" : "bill";
+      const resultData = toXlsx(results, rowFormat);
+      fs.writeFileSync(outFile, resultData, { encoding: "binary" });
+    }
+    */
     else {
       console.error("unknown output file format '" + outFile + "'");
     }
@@ -44,6 +77,25 @@ export function writeBillsOutput(
     const resultJson = JSON.stringify(results, undefined, "  ");
     console.log(resultJson);
   }
+}
+
+function toXlsx(resultSets: BillAndVotesParsed[], byBillOrVoter: "bill" | "voter"): string {
+  // Load an existing file as a template
+  var excelZippedFileData = fs.readFileSync('./template.xlsx');
+  var excelDataUnzipped = XlsxReaderWriter.readZip(/*Uint8Array*/excelZippedFileData, jszip);
+  var workbook = XlsxReaderWriter.loadXlsxFile({
+    sheetCount: 1
+  }, (path) => (excelDataUnzipped.files[path] != null ? excelDataUnzipped.files[path].asText() : null)!);
+
+  // TODO write resultsSets
+
+  // Write the xlsx file data back to the JSZip instance
+  XlsxReaderWriter.saveXlsxFile(workbook, (path, data) => {
+    // fix to remove namespace definitions from elements and attribute to fix for excel
+    data = data.replace(/ xmlns=""/g, "");
+    excelDataUnzipped.file(path, data);
+  });
+  return excelDataUnzipped.generate({ type: "string", compression: "DEFLATE" });
 }
 
 export function writePersonsOutput(
@@ -92,7 +144,9 @@ function buildVoterRecordsMap(chamber: string, billsWithVotes: BillAndVotesParse
   for (const bill of billsWithVotes) {
     // bill may have no votes for a given chamber
     const latestVote = findLatestVote(bill.votes, chamber);
-    console.log("latest vote for " + bill.billId + " (" + chamber + "):", latestVote?.link);
+    if (process.env.DEBUG) {
+      console.log("latest vote for " + bill.billId + " (" + chamber + "):", latestVote?.link);
+    }
     if (latestVote != null) {
       for (const vote of latestVote.votes) {
         const idName = vote.areaId + " - " + vote.voterName;
@@ -106,59 +160,61 @@ function buildVoterRecordsMap(chamber: string, billsWithVotes: BillAndVotesParse
         voterRecord[bill.billId] = vote.vote;
       }
     }
+    else {
+      console.error(`no latest vote found for bill ${bill.billId}`);
+    }
   }
   return voterRecordsMap;
 }
 
 
-function csvStringify(resultSets: BillAndVotesParsed[], byBillOrVoter: "bill" | "voter"): string {
+function csvStringify(resultSets: BillAndVotesParsed[], chamber: "Senate" | "House", byBillOrVoter: "bill" | "voter"): string {
   function orEmptyVoteResponse(vote: string | null | undefined) {
     return !vote || vote === "-NA-" ? "" : vote;
   }
 
-  const csvSections: string[] = [];
+  const voterRecordsMap = buildVoterRecordsMap(chamber, resultSets);
 
-  for (const chamber of chambers) {
-    const voterRecordsMap = buildVoterRecordsMap(chamber, resultSets);
+  const idNames = Object.keys(voterRecordsMap).sort(sortVoterIds);
 
-    const idNames = Object.keys(voterRecordsMap).sort(sortVoterIds);
-
-    if (process.env.DEBUG) {
-      console.log("writing " + chamber + " idNames:", JSON.stringify(idNames));
-      console.log("writing " + chamber + " voterRecordMap:", JSON.stringify(voterRecordsMap));
-    }
-
-    if (csvSections.length > 0) {
-      csvSections.push(Csv.stringify([], []));
-    }
-    csvSections.push(Csv.stringify([chamber], []));
-
-    const rows: string[][] = [];
-    if (byBillOrVoter === "bill") {
-      // rows by bill #
-      for (const bill of resultSets) {
-        const billId = bill.billId;
-        const billVotes = idNames.map((idName) => orEmptyVoteResponse(voterRecordsMap[idName][billId]));
-        rows.push([billId, ...billVotes]);
-      }
-
-      csvSections.push(Csv.stringify(["Bill", ...idNames], rows));
-    }
-    else {
-      // rows by voter ID
-      for (const idName of idNames) {
-        const voterRecords = voterRecordsMap[idName];
-        const voterBills = resultSets.map((bill) => orEmptyVoteResponse(voterRecords[bill.billId]));
-        rows.push([idName, ...voterBills]);
-      }
-
-      csvSections.push(Csv.stringify(["Bill", ...resultSets.map((bill) => bill.billId)], rows));
-    }
+  if (process.env.DEBUG) {
+    console.log("writing " + chamber + " idNames:", JSON.stringify(idNames));
+    //console.log("writing " + chamber + " voterRecordMap:", JSON.stringify(voterRecordsMap));
   }
 
-  return csvSections.join(Csv.CSV_ENDLINE);
+  const rows: string[][] = [];
+  if (byBillOrVoter === "bill") {
+    // rows by bill #
+    for (const bill of resultSets) {
+      const billId = bill.billId;
+      const billVotes = idNames.map((idName) => orEmptyVoteResponse(voterRecordsMap[idName][billId]));
+      const billName = bill.title || String(billId);
+      rows.push([billName, billId, ...billVotes]);
+    }
+
+    // header rows containing the bill names & chamber name, then the bill/voter rows
+    return Csv.stringify([`${chamber} - Bill Name`, "Bill", ...idNames], rows);
+  }
+  else {
+    // rows by voter ID
+    for (const idName of idNames) {
+      const voterRecords = voterRecordsMap[idName];
+      const voterBills = resultSets.map((bill) => orEmptyVoteResponse(voterRecords[bill.billId]));
+      rows.push([idName, ...voterBills]);
+    }
+
+    const billIds = resultSets.map((bill) => bill.billId);
+    const billNames = resultSets.map((bill) => bill.title || String(bill.billId));
+
+    return Csv.stringify([`${chamber} - Bill Name`, ...billNames], [["Bill", ...billIds]].concat(rows));
+  }
 }
 
+
+function addFileNameSuffix(path: string, suffix: string) {
+  const lastDotIdx = path.lastIndexOf('.');
+  return path.substring(0, lastDotIdx) + suffix + path.substring(lastDotIdx);
+}
 
 function sortVoterIds(a: string, b: string) {
   const diff = parseInt(a) - parseInt(b);
@@ -167,6 +223,15 @@ function sortVoterIds(a: string, b: string) {
 
 
 function sortBillIds(a: string, b: string) {
+  const aNum = isNumeric(a);
+  const bNum = isNumeric(b);
+  if (aNum && !bNum) {
+    return -1;
+  }
+  if (bNum && !aNum) {
+    return 1;
+  }
+
   const aLen = a.length;
   const bLen = b.length;
   if (aLen > bLen) {
@@ -175,6 +240,13 @@ function sortBillIds(a: string, b: string) {
   if (aLen < bLen) {
     return -1;
   }
-  
+
   return a.localeCompare(b);
+}
+
+/**
+ * @returns true if the input argument is a number or a string representation of a number, false if not
+ */
+function isNumeric(n: number | string | null | undefined): boolean {
+  return /^[0-9]+$/.test(n as any);
 }

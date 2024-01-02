@@ -53,3 +53,12 @@ export function runAsyncBatchActionsInSeries<T, R, P extends Promise<R[]>>(args:
     return results;
   });
 }
+
+export function isPromiseSettledResult(v: any): v is PromiseSettledResult<any> {
+  return (v as PromiseSettledResult<any>).status === "fulfilled" && ("value" in v || "reason" in v);
+}
+
+
+export function unwrapPromiseSettledResult<T, E = any>(v: PromiseSettledResult<T>): T | E {
+  return v.status === "fulfilled" ? v.value : v.reason;
+}

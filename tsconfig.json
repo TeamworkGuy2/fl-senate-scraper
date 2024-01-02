@@ -12,6 +12,7 @@
     "removeComments": false,
     "sourceMap": true,
     "strict": true,
+    "skipLibCheck": true,
     "target": "ES2021",
     "typeRoots": ["./src/types", "./node_modules/@types"],
     "types": [],

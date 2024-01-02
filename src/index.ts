@@ -1,6 +1,10 @@
 import * as fs from "fs";
-import { BillAndVotesParsed, Law } from "./@types";
-import { arrayToChunks, runAsyncBatchActionsInSeries } from "./utils/miscUtil";
+import { BillAndVotesParsed } from "./@types";
+import {
+  arrayToChunks,
+  isPromiseSettledResult,
+  runAsyncBatchActionsInSeries,
+} from "./utils/miscUtil";
 import { fetchLawSessions } from "./bills/fetchLawList";
 import { parseBill } from "./bills/parseBill";
 import { fetchRepresentatives } from "./congress/scrapeRepresentativesList";
@@ -18,9 +22,10 @@ function main() {
 
   if (!inFile && !year && !fetch) {
     console.log("Usage: 'node ./dest/index.js --year=2022 [--bill=100,101,...] --outFile=output.(json|csv) --rows=[bill|voter]");
-    console.log("or: 'node ./dest/index.js --inFile=previous_output.json --outFile=output.(json|csv) --rows=[bill|voter]");
+    console.log("or: 'node ./dest/index.js --inFile=bills-and-laws-2021.json --outFile=output.(json|csv) --rows=[bill|voter]");
     console.log("or: 'node ./dest/index.js --fetch=[senate|congress] --outFile=legislators.json");
     console.log("or: 'node ./dest/index.js --fetch=laws --year=2022 --outFile=laws.json");
+    // TODO testing: node ./dest/index.js --inFile=bills-and-laws-2021.json --outFile=output-spreadsheet-2021.xlsx --rows=voter
     return;
   }
 
@@ -66,7 +71,7 @@ function main() {
 
       resPromise = pBills.then((bills) => {
         if (process.env.DEBUG) {
-          console.log(`loading bills [${bills}], year: ${year}, saving to file: ${outFile}`);
+          console.log(`loading bills from year ${year}, saving to file '${outFile}', bills: [${bills}]`);
         }
         return runAsyncBatchActionsInSeries(arrayToChunks(bills!, 40), (billSubset, i) =>
           Promise.allSettled(billSubset.map(bill => {
@@ -86,10 +91,10 @@ function main() {
         console.log("loading bills from file: " + inFile + ", saving to file: " + outFile);
       }
       const inFileContents = fs.readFileSync(inFile, { encoding: "utf8" });
-      resPromise = Promise.resolve(JSON.parse(inFileContents).map(bv => ({
-        status: "fulfilled",
-        value: bv as BillAndVotesParsed,
-      })));
+      // handle 'DEBUG' raw_output.json formatted files as well as regular JSON output formatted files
+      resPromise = Promise.resolve((JSON.parse(inFileContents)).map(bv => {
+        return isPromiseSettledResult(bv) ? bv : { status: "fulfilled", value: bv };
+      }));
     }
     // write output
     resPromise.then((resultsAndErrors) => {

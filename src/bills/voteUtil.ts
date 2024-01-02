@@ -7,9 +7,16 @@ export function findLatestVote(votes: VotePdfParsed[], chamber: string) {
   let i = 0;
   for (const vote of votes) {
     if (vote.chamber === chamber) {
-      const dateHeader = vote.headers.find(h => h.name === "Date");
-      if (dateHeader != null) {
-        const date = new Date(dateHeader.value as string);
+      let date = new Date(vote.date!);
+      // back up method to handle older files before the 'vote.date' property was added
+      if (isNaN(date.getTime())) {
+        const dateHeader = vote.headers.find(h => h.name === "Date");
+        const timeHeader = vote.headers.find(h => h.name === "Time");
+        if (dateHeader != null) {
+          date = new Date(dateHeader.value as string + (timeHeader?.value != null ? " " + timeHeader.value as string : ""));
+        }
+      }
+      if (!isNaN(date.getTime())) {
         if (date > latestDate) {
           latestDate = date;
           latestIdx = i;

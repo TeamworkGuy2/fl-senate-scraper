@@ -1,6 +1,6 @@
 {
   "name": "fl-senate-scraper",
-  "version": "0.4.0",
+  "version": "0.6.0",
   "description": "Scrap info from flsenate.gov",
   "author": "TeamworkGuy2",
   "homepage": "https://github.com/TeamworkGuy2/fl-senate-scraper",
@@ -12,13 +12,16 @@
   },
   "dependencies": {
     "camelcase": "~6.3.0",
-    "jsdom": "^21.1.2",
-    "pdf2json": "~2.0.2"
+    "jsdom": "^22.1.0",
+    "jszip": "^2.6.1",
+    "pdf2json": "~2.0.2",
+    "xlsx-spec-models": "~0.8.3",
+    "xlsx-spec-utils": "~0.7.2"
   },
   "devDependencies": {
-    "@types/jsdom": "^21.1.1",
+    "@types/jsdom": "^21.1.6",
     "@types/node": "^18.15.12",
-    "typescript": "~5.0.4"
+    "typescript": "~4.5.4"
   },
   "scripts": {
     "test": "node --test",

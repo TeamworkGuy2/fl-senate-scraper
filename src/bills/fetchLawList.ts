@@ -86,6 +86,7 @@ function parseLawRow(domain: string, tr: HTMLTableRowElement, index: number): La
 
   return {
     billId: billId!,
+    documentName: td1Link.textContent?.trim() ?? "",
     documentLink: domain + td1Link.href,
     description: td3.textContent?.trim() ?? "",
   };
