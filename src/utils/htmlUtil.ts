@@ -28,7 +28,7 @@ export function parseTables(
   debugName: string,
   mapCell?: ((element: HTMLTableCellElement, index: number, dst: NameValue) => NameValue | symbol | null)
 ) {
-  const tables = dom.querySelectorAll(tableQuery);
+  const tables = Array.from(dom.querySelectorAll(tableQuery));
   const parsedRows: Record<string, any>[] = [];
   for (const table of tables) {
     const rowElements = Array.from(table.querySelectorAll("tr"));

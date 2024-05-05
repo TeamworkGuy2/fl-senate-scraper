@@ -29,6 +29,8 @@ function main() {
     return;
   }
 
+  const excludeBillIds: string[] | undefined = undefined; /*[ "7054", "6-B", "HJR1157", "HJR31" ];*/
+
   if (fetch) {
     if (process.env.DEBUG) {
       console.log("loading " + fetch + " member list");
@@ -101,7 +103,11 @@ function main() {
       if (process.env.DEBUG && !inFile) {
         fs.writeFileSync("raw_output.json", JSON.stringify(resultsAndErrors, undefined, "  "), { encoding: "utf8" });
       }
-      writeBillsOutput(outFile, resultsAndErrors, byBillOrVoter);
+
+      const errorCount = resultsAndErrors.filter((r) => r.status === "rejected" || (r.value as any).error).length;
+      console.log(`writing results to file (${resultsAndErrors.length - errorCount}${errorCount > 0 ? `, errors: ${errorCount}` : ''}): ${outFile}`);
+
+      writeBillsOutput(outFile, resultsAndErrors, byBillOrVoter, excludeBillIds);
     }).catch((err) => {
       console.error("Error loading bills:", err);
     });

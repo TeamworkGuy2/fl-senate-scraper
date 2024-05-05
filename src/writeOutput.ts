@@ -5,7 +5,25 @@ import { chambers } from "./bills/scrapeBillPage";
 import { findLatestVote } from "./bills/voteUtil";
 import * as XlsxReaderWriter from "xlsx-spec-utils/XlsxReaderWriter";
 import * as jszip from "jszip";
+import * as JSDom from "jsdom";
+import WorksheetUtil = require("xlsx-spec-utils/utils/WorksheetUtil");
+import DomBuilderHelper = require("@twg2/dom-builder/dom/DomBuilderHelper");
 
+// hack to override DomBuilderHelper.getParser
+DomBuilderHelper.getParser = function () {
+  return {
+    parseFromString: (html: string, type: DOMParserSupportedType): Document => {
+      return new JSDom.JSDOM(html, { contentType: type || "text/html" }).window.document;
+    },
+  };
+};
+DomBuilderHelper.getSerializer = function () {
+  return {
+    serializeToString: (root: Node): string => {
+      return (root as any).documentElement.outerHTML;
+    },
+  };
+}
 
 /**
  * Write a JSON or CSV file containing the parsed bills and votes and/or errors
@@ -20,9 +38,10 @@ export function writeBillsOutput(
   outFile: string | null,
   resultsAndErrors: PromiseSettledResult<BillAndVotesParsed | { error: any }>[],
   byBillOrVoter?: string | null,
+  excludeBillIds?: string[],
 ) {
   const errors = resultsAndErrors.filter((r): r is PromiseRejectedResult => r.status === "rejected" || (r.value as any).error).map(r => r.reason || (r as any).value.error);
-  const results = resultsAndErrors.filter((r): r is PromiseFulfilledResult<BillAndVotesParsed> => r.status === "fulfilled").map(r => r.value).sort((a, b) => sortBillIds(a.billId, b.billId));
+  let results = resultsAndErrors.filter((r): r is PromiseFulfilledResult<BillAndVotesParsed> => r.status === "fulfilled").map(r => r.value).sort((a, b) => sortBillIds(a.billId, b.billId));
 
   if (errors?.length > 0) {
     console.error(errors.length + " errors:");
@@ -30,26 +49,9 @@ export function writeBillsOutput(
   }
 
   if (outFile) {
-    for (const res of results) {
-      let i = 0;
-      for (const vote of res.votes) {
-        const dateHeader = vote.headers.find(h => h.name === "Date");
-        const timeHeader = vote.headers.find(h => h.name === "Time");
-        if (dateHeader) {
-          const { billId, link, chamber, date: oldDate, errors, ...rest } = res.votes[i];
-          res.votes[i] = {
-            billId,
-            link,
-            chamber,
-            date: oldDate || `${dateHeader}${timeHeader ? ' ' + timeHeader : ''}`,
-            errors: errors?.length! > 0 ? errors : undefined,
-            ...rest,
-          };
-        }
-        i++;
-      }
+    if (excludeBillIds != null && excludeBillIds.length > 0) {
+      results = results.filter(b => !excludeBillIds.includes(b.billId));
     }
-    debugger;
 
     if (outFile.endsWith("json")) {
       const resultJson = JSON.stringify(results, undefined, "  ");
@@ -58,17 +60,16 @@ export function writeBillsOutput(
     else if (outFile.endsWith("csv")) {
       const rowFormat = byBillOrVoter === "voter" ? "voter" : "bill";
       for (const chamber of chambers) {
-        const resultCsv = csvStringify(results, chamber, rowFormat);
+        const resultCsv = votesToCsv(results, chamber, rowFormat);
         fs.writeFileSync(addFileNameSuffix(outFile, `-${chamber}`), resultCsv, { encoding: "utf8" });
       }
     }
-    /* TODO: work-in-progress
+    // TODO: work-in-progress
     else if (outFile.endsWith("xlsx")) {
       const rowFormat = byBillOrVoter === "voter" ? "voter" : "bill";
       const resultData = toXlsx(results, rowFormat);
       fs.writeFileSync(outFile, resultData, { encoding: "binary" });
     }
-    */
     else {
       console.error("unknown output file format '" + outFile + "'");
     }
@@ -88,6 +89,9 @@ function toXlsx(resultSets: BillAndVotesParsed[], byBillOrVoter: "bill" | "voter
   }, (path) => (excelDataUnzipped.files[path] != null ? excelDataUnzipped.files[path].asText() : null)!);
 
   // TODO write resultsSets
+  const DY_DESCENT = 0.2;
+  const worksheet = workbook.worksheets[0].worksheet!;
+  WorksheetUtil.addPlainRow(worksheet, ['Header 1'], DY_DESCENT);
 
   // Write the xlsx file data back to the JSZip instance
   XlsxReaderWriter.saveXlsxFile(workbook, (path, data) => {
@@ -168,7 +172,7 @@ function buildVoterRecordsMap(chamber: string, billsWithVotes: BillAndVotesParse
 }
 
 
-function csvStringify(resultSets: BillAndVotesParsed[], chamber: "Senate" | "House", byBillOrVoter: "bill" | "voter"): string {
+function votesToCsv(resultSets: BillAndVotesParsed[], chamber: "Senate" | "House", byBillOrVoter: "bill" | "voter"): string {
   function orEmptyVoteResponse(vote: string | null | undefined) {
     return !vote || vote === "-NA-" ? "" : vote;
   }
@@ -203,10 +207,11 @@ function csvStringify(resultSets: BillAndVotesParsed[], chamber: "Senate" | "Hou
       rows.push([idName, ...voterBills]);
     }
 
+    const billLinks = resultSets.map((bill) => `https://flsenate.gov${bill.billPdf}`);
     const billIds = resultSets.map((bill) => bill.billId);
     const billNames = resultSets.map((bill) => bill.title || String(bill.billId));
 
-    return Csv.stringify([`${chamber} - Bill Name`, ...billNames], [["Bill", ...billIds]].concat(rows));
+    return Csv.stringify(['', ...billLinks], [[`${chamber} - Bill Name`, ...billNames], ["Bill", ...billIds]].concat(rows));
   }
 }
 

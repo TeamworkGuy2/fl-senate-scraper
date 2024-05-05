@@ -14,7 +14,7 @@ export function fetchLawSessions(year: string, pageUrl = 'https://laws.flrules.o
 
   return fetchYearNid(year, pageUrl).then((nid) => {
     return urlFetch(pageUrl + "?field_list_year_nid=" + nid, true).then((doc) => {
-      const tables = doc.querySelectorAll<HTMLTableElement>("#content .view-content table");
+      const tables = Array.from(doc.querySelectorAll<HTMLTableElement>("#content .view-content table"));
       if (tables.length < 1) {
         throw new Error("Expected at least 1 session table, found none");
       }

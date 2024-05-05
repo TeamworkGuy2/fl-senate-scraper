@@ -17,7 +17,9 @@ import { fetchBill } from "./scrapeBillPage";
   // parse the bill page for PDF links to house/senate votes
   const bill = await fetchBill(year, billId);
   const { votes: voteLinks } = bill;
-  console.log("found " + voteLinks.length + " vote PDFs:", voteLinks);
+  if (process.env.DEBUG) {
+    console.log("found " + voteLinks.length + " vote PDFs:", voteLinks);
+  }
 
   // parse the votes PDFs
   const pVoteTallies = voteLinks.map(vote => {
